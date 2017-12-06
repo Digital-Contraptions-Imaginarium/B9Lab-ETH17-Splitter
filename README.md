@@ -1,5 +1,5 @@
-Splitter
-========
+B9Lab-ETH17-Splitter
+====================
 
 This is the Solidity-only solution to the Splitter problem presented at
 https://academy.b9lab.com/courses/course-v1:B9lab+ETH-17+2017-10/courseware/82c7df09b67c4f96818e0a32a59b6457/d5b4341029a249bdb438d5a87a9c5a94/

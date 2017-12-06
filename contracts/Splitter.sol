@@ -2,109 +2,78 @@ pragma solidity ^0.4.15;
 
 contract Splitter {
 
-    address killer;
-    bool killed = false;
-    address[] knownAddresses;
-    mapping(address => uint) balances;
+    bool public depositsAreSuspended;
+    address[3] public users;
+    mapping(address => uint) public balances;
 
-    function Splitter(address _alice, address _bob, address _carol)
+    function Splitter(address _bob, address _carol)
         public
     {
         // fails if any address is a duplicate
-        if((_alice == _bob) || (_alice == _carol) || (_bob == _carol)) revert();
+        if((msg.sender == _bob) || (msg.sender == _carol) || (_bob == _carol)) revert();
 
-        killer = msg.sender;
-        knownAddresses.push(_alice);
-        knownAddresses.push(_bob);
-        knownAddresses.push(_carol);
+        users[0] = msg.sender;
+        users[1] = _bob;
+        users[2] = _carol;
+    }
+
+    modifier onlyIfKnownUser {
+        require((msg.sender == users[0]) || (msg.sender == users[1]) || (msg.sender == users[2]));
+        _;
+    }
+
+    modifier onlyIfNotSuspended {
+        require(!depositsAreSuspended);
+        _;
     }
 
     // This is the contract's kill switch. Can be used by the original
     // contract creator only.
-    function kill()
+    function suspendDeposits()
         public
+        onlyIfKnownUser
+        onlyIfNotSuspended
         returns(bool)
     {
-        if(msg.sender != killer) revert();
-        killed = true;
+        depositsAreSuspended = true;
         return true;
     }
 
-    function getBalance(address userAddress)
+    function deposit()
         public
-        constant
-        returns(uint)
-    {
-        // no need to check if userAddress is known: whatever the unknown
-        // address, its balance will be zero!
-        return balances[userAddress];
-    }
-
-    // returns true if msg.sender is one of the three addresses for which the
-    // contract was created
-    function senderIsKnown()
-        private
-        constant
+        onlyIfNotSuspended
+        onlyIfKnownUser
+        payable
         returns(bool)
     {
-        for(uint i; (msg.sender != knownAddresses[i]) && (i < knownAddresses.length); i++) { }
-        return i < knownAddresses.length;
-    }
-
-    // returns an array with the addresses of the contract beneficiaries,
-    // excluding msg.sender
-    function getEverybodyElse()
-        private
-        constant
-        returns(address[2])
-    {
-        // fail if msg.sender is neither Alice, Bob or Carol
-        if (!senderIsKnown()) revert();
-
-        address[2] memory everybodyElse;
-        uint j;
-        for(uint i; i < knownAddresses.length; i++)
-            if(msg.sender != knownAddresses[i])
-                everybodyElse[j++] = knownAddresses[i];
-        return everybodyElse;
-    }
-
-    function send()
-        public
-        payable
-        returns(bool success)
-    {
-        // if it's dead, it's dead
-        if(killed) revert();
         // can't send zero amount
-        if (msg.value == 0) revert();
-        // fail if msg.sender is neither Alice, Bob or Carol
-        if (!senderIsKnown()) revert();
+        require(msg.value > 0);
 
         // note this is an integer division
-        uint toBePaid = msg.value / 2;
-        address[2] memory beneficiaries = getEverybodyElse();
-        balances[beneficiaries[0]] += toBePaid;
-        balances[beneficiaries[1]] += toBePaid;
-        // any remainder goes to the sender
-        balances[msg.sender] += msg.value - toBePaid * 2;
+        uint toBePaid = msg.value / uint(2);
+        uint remainder = msg.value - toBePaid * 2;
+        balances[users[0]] += (msg.sender != users[0]) ? toBePaid : remainder;
+        balances[users[1]] += (msg.sender != users[1]) ? toBePaid : remainder;
+        balances[users[2]] += (msg.sender != users[2]) ? toBePaid : remainder;
         return true;
     }
 
     function withdraw()
         public
+        // onlyIfKnownUser modifier is not necessary because balance of unknown
+        // users will always be zero
         returns(bool)
     {
-        // if it's dead, it's dead
-        if(killed) revert();
-        // fail if msg.sender is neither Alice, Bob or Carol
-        if (!senderIsKnown()) revert();
-
         // proceed to withdraw if the balance is positive
-        if (balances[msg.sender] > 0) {
-            msg.sender.transfer(balances[msg.sender]);
-            balances[msg.sender] = 0;
-        }
+        require(balances[msg.sender] > 0);
+
+        uint toTransfer = balances[msg.sender];
+        balances[msg.sender] = 0;
+        // NOTE: according to Rob https://github.com/Digital-Contraptions-Imaginarium/B9Lab-ETH17-Splitter/commit/ec4bbdd1dd0705e07e5d9fb2299fb4080e60887f#r26072127
+        // it's important that transfer is last, so that it can revert
+        // the zeroing of balances[msg.sender] above; I am not sure though, I've
+        // asked him about this.
+        msg.sender.transfer(toTransfer);
         return true;
     }
 
