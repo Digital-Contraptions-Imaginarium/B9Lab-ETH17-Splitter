@@ -6,6 +6,10 @@ contract Splitter {
     address[3] public users;
     mapping(address => uint) public balances;
 
+    event LogDeposit(address userAddress, uint amount);
+    event LogDepositSuspension(address userAddress);
+    event LogWithdrawal(address userAddress, uint balance);
+
     function Splitter(address _bob, address _carol)
         public
     {
@@ -36,6 +40,7 @@ contract Splitter {
         returns(bool)
     {
         depositsAreSuspended = true;
+        LogDepositSuspension(msg.sender);
         return true;
     }
 
@@ -55,6 +60,7 @@ contract Splitter {
         balances[users[0]] += (msg.sender != users[0]) ? toBePaid : remainder;
         balances[users[1]] += (msg.sender != users[1]) ? toBePaid : remainder;
         balances[users[2]] += (msg.sender != users[2]) ? toBePaid : remainder;
+        LogDeposit(msg.sender, msg.value);
         return true;
     }
 
@@ -74,6 +80,7 @@ contract Splitter {
         // the zeroing of balances[msg.sender] above; I am not sure though, I've
         // asked him about this.
         msg.sender.transfer(toTransfer);
+        LogWithdrawal(msg.sender, toTransfer);
         return true;
     }
 
