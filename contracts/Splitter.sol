@@ -1,3 +1,6 @@
+// Please read the README.md file at https://github.com/Digital-Contraptions-Imaginarium/B9Lab-ETH17-Splitter/blob/master/README.md
+// before studying this code for corrections or suggestions.
+
 pragma solidity ^0.4.15;
 
 contract Splitter {
@@ -38,8 +41,7 @@ contract Splitter {
     }
 
     // Any of the three users in the contract can decide to pause or resume it, e.g. to manage
-    // bugs.
-    // I am aware that the dynamics of this can be tricky, as - if the users became adversary
+    // bugs. I am aware that the dynamics of this can be tricky, as - if the users became adversary
     // - one could revert the other's decision to pause or resume.
     // Original suggestion by @xavierlepretre at https://github.com/Digital-Contraptions-Imaginarium/B9Lab-ETH17-Splitter/commit/ec4bbdd1dd0705e07e5d9fb2299fb4080e60887f#r26085131
     function pause()
@@ -87,14 +89,15 @@ contract Splitter {
     function withdraw()
         public
         // I don't think I need the onlyIfKnownUser modifier here: the balance of unknown users will
-        // always be zero, and the require statement will not allow a malicious user to create new
+        // always be zero, and the require statement will not allow an unknown user to create new
         // entries in the balances hash... so it is only the attacker's problem if they want to
         // waste gas; see also if this conversation clarifies what behaviour is best here
         // https://github.com/Digital-Contraptions-Imaginarium/B9Lab-ETH17-Splitter/commit/ec4bbdd1dd0705e07e5d9fb2299fb4080e60887f#r26085187
         onlyIfNotPaused
         returns(bool)
     {
-        // proceed to withdraw if the balance is positive
+        // proceed to withdraw only if the balance is positive, that also means that the msg.sender
+        // address must be one of Alice, Bob of Carol
         require(balances[msg.sender] > 0);
 
         uint toTransfer = balances[msg.sender];
